@@ -1,0 +1,21 @@
+{
+  "name": "@packtrial-fixtures/good-dual",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./index.cjs",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  },
+  "bin": {
+    "fixture-cli": "./cli.cjs"
+  },
+  "files": [
+    "index.cjs",
+    "index.mjs",
+    "cli.cjs"
+  ]
+}
+
