@@ -18,6 +18,9 @@ function inferDiagnosticCode(template: TemplateName, output: string): Diagnostic
   if (/Cannot find module|ERR_MODULE_NOT_FOUND/i.test(output)) {
     return "MISSING_EXPORT";
   }
+  if (/Could not find a declaration file|implicitly has an 'any' type|Cannot find type definition/i.test(output)) {
+    return "MISSING_TYPES";
+  }
   if (/require\(\) of ES Module|ERR_REQUIRE_ESM/i.test(output)) {
     return "MODULE_FORMAT_MISMATCH";
   }
@@ -30,6 +33,8 @@ function failureMessage(code: DiagnosticCode): string {
       return "The CLI binary could not be executed from the consumer project.";
     case "MISSING_EXPORT":
       return "The package entrypoint could not be resolved by the consumer.";
+    case "MISSING_TYPES":
+      return "The package types could not be resolved by the TypeScript consumer.";
     case "MODULE_FORMAT_MISMATCH":
       return "The package module format does not match the consumer template.";
     default:
@@ -43,10 +48,11 @@ function failureSuggestion(code: DiagnosticCode): string {
       return "Check package.json bin entries and packed files.";
     case "MISSING_EXPORT":
       return "Check package.json exports, main, and files entries.";
+    case "MISSING_TYPES":
+      return "Check package.json types, exports types conditions, and packed declaration files.";
     case "MODULE_FORMAT_MISMATCH":
       return "Document unsupported module formats or provide a compatible export.";
     default:
       return "Re-run with the generated consumer workspace kept for debugging.";
   }
 }
-
