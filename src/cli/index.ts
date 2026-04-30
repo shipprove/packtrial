@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { cac } from "cac";
 import { DEFAULT_CONFIG, parseConfig } from "../config/schema.js";
 import { loadPackTrialConfig } from "../config/loadConfig.js";
 import { runMatrix } from "../core/runMatrix.js";
-import { renderTerminalReport } from "../report/terminalReport.js";
+import { createReportDocument } from "../report/reportDocument.js";
+import { renderJsonReport } from "../report/jsonReport.js";
+import { renderMarkdownReport } from "../report/markdownReport.js";
+import { renderConfiguredTerminalReport, writeReports } from "../report/writeReports.js";
+import type { ReportDocument } from "../core/types.js";
 import { listTemplates } from "../templates/registry.js";
 
 const cli = cac("packtrial");
@@ -43,8 +47,10 @@ cli
       keepWorkdir: options.keepWorkdir ?? loaded.keepWorkdir
     });
     const results = await runMatrix(config);
-    console.log(renderTerminalReport(results));
-    if (config.failOn === "any-failure" && results.some((result) => result.status === "failed")) {
+    const report = createReportDocument(results, "0.1.0");
+    await writeReports(report, config);
+    console.log(renderConfiguredTerminalReport(report));
+    if (config.failOn === "any-failure" && report.status === "failed") {
       process.exitCode = 1;
     }
   });
@@ -88,15 +94,34 @@ export default defineConfig({
   }
 });
 
-cli.command("diagnose <report>", "Re-display diagnostics from a report.").action(() => {
-  console.error("packtrial diagnose is not implemented yet. Report diagnostics arrive in a later PR.");
-  process.exitCode = 2;
+cli.command("diagnose <report>", "Re-display diagnostics from a report.").action(async (reportPath: string) => {
+  const report = await readReport(reportPath);
+  if (report.findings.length === 0) {
+    console.log("No findings.");
+    return;
+  }
+  for (const finding of report.findings) {
+    console.log(`${finding.code}: ${finding.message}`);
+    console.log(`Suggestion: ${finding.suggestion}`);
+  }
 });
 
-cli.command("report <report>", "Render a report in another format.").action(() => {
-  console.error("packtrial report is not implemented yet. Report rendering arrives in a later PR.");
-  process.exitCode = 2;
-});
+cli
+  .command("report <report>", "Render a report in another format.")
+  .option("--format <format>", "Report format: json or markdown.", { default: "markdown" })
+  .action(async (reportPath: string, options) => {
+    const report = await readReport(reportPath);
+    if (options.format === "json") {
+      console.log(renderJsonReport(report));
+      return;
+    }
+    if (options.format === "markdown") {
+      console.log(renderMarkdownReport(report, DEFAULT_CONFIG.limits.maxMarkdownBytes));
+      return;
+    }
+    console.error(`Unsupported report format: ${options.format}`);
+    process.exitCode = 2;
+  });
 
 cli.help();
 cli.version("0.1.0");
@@ -107,4 +132,8 @@ function splitOption<T extends string>(value: string | undefined, fallback: T[])
     return fallback;
   }
   return value.split(",").map((item) => item.trim()).filter(Boolean) as T[];
+}
+
+async function readReport(path: string): Promise<ReportDocument> {
+  return JSON.parse(await readFile(path, "utf8")) as ReportDocument;
 }
