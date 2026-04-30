@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 import { writeFile } from "node:fs/promises";
 import { cac } from "cac";
-import { DEFAULT_CONFIG } from "../config/schema.js";
+import { DEFAULT_CONFIG, parseConfig } from "../config/schema.js";
+import { loadPackTrialConfig } from "../config/loadConfig.js";
+import { runMatrix } from "../core/runMatrix.js";
+import { renderTerminalReport } from "../report/terminalReport.js";
 import { listTemplates } from "../templates/registry.js";
 
 const cli = cac("packtrial");
@@ -21,9 +24,29 @@ cli
   .option("--keep-workdir <mode>", "Temp workspace policy: never, on-failure, always.", {
     default: DEFAULT_CONFIG.keepWorkdir
   })
-  .action(() => {
-    console.error("packtrial run is not implemented yet. It will be added in the consumer matrix PR.");
-    process.exitCode = 2;
+  .action(async (options) => {
+    const loaded = await loadPackTrialConfig();
+    const config = parseConfig({
+      ...loaded,
+      package: {
+        ...loaded.package,
+        tarball: options.package
+      },
+      packageManagers: splitOption(options.pm, loaded.packageManagers),
+      templates: splitOption(options.template, loaded.templates),
+      cli: options.cliCommand ? { command: options.cliCommand } : loaded.cli,
+      report: {
+        ...loaded.report,
+        outputDir: options.outDir ?? loaded.report.outputDir
+      },
+      failOn: options.failOn ?? loaded.failOn,
+      keepWorkdir: options.keepWorkdir ?? loaded.keepWorkdir
+    });
+    const results = await runMatrix(config);
+    console.log(renderTerminalReport(results));
+    if (config.failOn === "any-failure" && results.some((result) => result.status === "failed")) {
+      process.exitCode = 1;
+    }
   });
 
 cli.command("list-templates", "List available consumer templates.").action(() => {
@@ -78,3 +101,10 @@ cli.command("report <report>", "Render a report in another format.").action(() =
 cli.help();
 cli.version("0.1.0");
 cli.parse();
+
+function splitOption<T extends string>(value: string | undefined, fallback: T[]): T[] {
+  if (!value) {
+    return fallback;
+  }
+  return value.split(",").map((item) => item.trim()).filter(Boolean) as T[];
+}
