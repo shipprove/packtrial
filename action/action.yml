@@ -1,0 +1,26 @@
+name: PackTrial
+description: Test your package the way your users install it.
+inputs:
+  package:
+    description: Path to an existing package tarball.
+    required: false
+  package-managers:
+    description: Comma-separated package managers.
+    required: false
+    default: npm,pnpm
+  templates:
+    description: Comma-separated consumer templates.
+    required: false
+    default: node-esm,node-cjs,ts-node16,ts-bundler,cli-basic
+  fail-on:
+    description: Failure behavior.
+    required: false
+    default: any-failure
+  keep-workdir:
+    description: Temporary workspace retention policy.
+    required: false
+    default: never
+runs:
+  using: node20
+  main: index.js
+

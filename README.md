@@ -79,15 +79,8 @@ PackTrial does not collect telemetry by default. It only accesses the network wh
 
 ## Contributing
 
-This project is at the repository setup stage. Before contributing implementation work, read the planning documents in `00-docs/`:
-
-- `shipprove-org-concept.md`
-- `shipprove-implementation-handoff.md`
-- `packtrial-mvp-plan.md`
-
-Please keep changes aligned with the MVP scope: package artifact validation in generated synthetic consumer projects for Node.js / TypeScript packages.
+This project is under active MVP development. Please keep changes aligned with the MVP scope: package artifact validation in generated synthetic consumer projects for Node.js / TypeScript packages.
 
 ## License
 
 Apache-2.0. See `LICENSE`.
-
