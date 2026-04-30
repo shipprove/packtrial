@@ -22,7 +22,13 @@ export async function materializeTemplate(
   const packageJson = {
     private: true,
     type: template === "node-cjs" ? "commonjs" : "module",
-    scripts: {}
+    scripts: {},
+    devDependencies:
+      template === "ts-node16" || template === "ts-bundler"
+        ? {
+            typescript: "^5.9.3"
+          }
+        : undefined
   };
   await writeFile(join(dir, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
 
@@ -49,6 +55,18 @@ export async function materializeTemplate(
     return { commands: { run: command } };
   }
 
+  if (template === "ts-node16" || template === "ts-bundler") {
+    await writeFile(
+      join(dir, "index.ts"),
+      `import { ok } from ${JSON.stringify(artifact.packageJson.name)};\nconst value: boolean = ok;\nconsole.log(value);\n`
+    );
+    await writeFile(
+      join(dir, "tsconfig.json"),
+      `${JSON.stringify(tsConfig(template), null, 2)}\n`
+    );
+    return { commands: { build: ["node", "node_modules/typescript/bin/tsc", "--noEmit"] } };
+  }
+
   throw new Error(`Template ${template} is not implemented in this PR.`);
 }
 
@@ -60,3 +78,28 @@ function inferCliCommand(artifact: PackageArtifact): string[] {
   return [binName, "--help"];
 }
 
+function tsConfig(template: "ts-node16" | "ts-bundler"): Record<string, unknown> {
+  if (template === "ts-node16") {
+    return {
+      compilerOptions: {
+        module: "Node16",
+        moduleResolution: "Node16",
+        target: "ES2022",
+        strict: true,
+        skipLibCheck: true
+      },
+      include: ["index.ts"]
+    };
+  }
+
+  return {
+    compilerOptions: {
+      module: "ESNext",
+      moduleResolution: "Bundler",
+      target: "ES2022",
+      strict: true,
+      skipLibCheck: true
+    },
+    include: ["index.ts"]
+  };
+}

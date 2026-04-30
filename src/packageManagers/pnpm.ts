@@ -1,16 +1,16 @@
-import { join, delimiter } from "node:path";
+import { delimiter, join } from "node:path";
 import { runCommand } from "../utils/exec.js";
 import type { StepResult } from "../core/types.js";
 
-export type NpmRunnerOptions = {
+export type PnpmRunnerOptions = {
   cwd: string;
   tarballPath: string;
   commandTimeoutMs: number;
   maxOutputBytes: number;
 };
 
-export async function npmInstall(options: NpmRunnerOptions): Promise<StepResult> {
-  const result = await runCommand(["npm", "install", options.tarballPath], {
+export async function pnpmInstall(options: PnpmRunnerOptions): Promise<StepResult> {
+  const result = await runCommand(["pnpm", "add", options.tarballPath], {
     cwd: options.cwd,
     timeoutMs: options.commandTimeoutMs,
     maxOutputBytes: options.maxOutputBytes
@@ -29,7 +29,7 @@ export async function npmInstall(options: NpmRunnerOptions): Promise<StepResult>
   };
 }
 
-export async function npmRunConsumerCommand(
+export async function pnpmRunConsumerCommand(
   cwd: string,
   command: string[],
   stepName: "build" | "run",

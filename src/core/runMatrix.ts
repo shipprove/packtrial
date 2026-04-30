@@ -4,6 +4,7 @@ import { classifyFailure } from "../diagnostics/classifyFailure.js";
 import { inspectTarball } from "../package/inspectTarball.js";
 import { resolveTarball } from "../package/resolveTarball.js";
 import { npmInstall, npmRunConsumerCommand } from "../packageManagers/npm.js";
+import { pnpmInstall, pnpmRunConsumerCommand } from "../packageManagers/pnpm.js";
 import { materializeTemplate } from "../templates/materialize.js";
 import { createTempDir, removeDir } from "../utils/tempDir.js";
 import type { MatrixResult, PackTrialConfig, PackageManagerName, TemplateName } from "./types.js";
@@ -15,11 +16,6 @@ export async function runMatrix(config: PackTrialConfig): Promise<MatrixResult[]
 
   for (const packageManager of config.packageManagers) {
     for (const template of config.templates) {
-      if (!isImplementedPackageManager(packageManager) || !isImplementedTemplate(template)) {
-        results.push(skippedResult(packageManager, template));
-        continue;
-      }
-
       results.push(await runCase(config, packageManager, template, artifact.tarballPath, artifact));
     }
   }
@@ -29,8 +25,8 @@ export async function runMatrix(config: PackTrialConfig): Promise<MatrixResult[]
 
 async function runCase(
   config: PackTrialConfig,
-  packageManager: "npm",
-  template: "node-esm" | "node-cjs" | "cli-basic",
+  packageManager: PackageManagerName,
+  template: TemplateName,
   tarballPath: string,
   artifact: Awaited<ReturnType<typeof inspectTarball>>
 ): Promise<MatrixResult> {
@@ -42,21 +38,20 @@ async function runCase(
 
   try {
     const materialized = await materializeTemplate(template, consumerDir, artifact, config.cli?.command);
-    const install = await npmInstall({
-      cwd: consumerDir,
-      tarballPath,
-      commandTimeoutMs: config.limits.commandTimeoutMs,
-      maxOutputBytes: config.limits.maxOutputBytes
-    });
+    const install = await installPackage(packageManager, consumerDir, tarballPath, config);
     steps.push(install);
     if (install.status !== "passed") {
       return failedResult(packageManager, template, startedAt, steps, classifyFailure(template, install));
     }
 
-    if (materialized.commands.run) {
-      const run = await npmRunConsumerCommand(
+    const stepName = materialized.commands.build ? "build" : "run";
+    const command = materialized.commands.build ?? materialized.commands.run;
+    if (command) {
+      const run = await runConsumerCommand(
+        packageManager,
         consumerDir,
-        materialized.commands.run,
+        command,
+        stepName,
         config.limits.commandTimeoutMs,
         config.limits.maxOutputBytes
       );
@@ -94,31 +89,9 @@ async function runCase(
   }
 }
 
-function isImplementedPackageManager(packageManager: PackageManagerName): packageManager is "npm" {
-  return packageManager === "npm";
-}
-
-function isImplementedTemplate(template: TemplateName): template is "node-esm" | "node-cjs" | "cli-basic" {
-  return template === "node-esm" || template === "node-cjs" || template === "cli-basic";
-}
-
-function skippedResult(packageManager: PackageManagerName, template: TemplateName): MatrixResult {
-  return {
-    case: { id: `${packageManager}:${template}`, packageManager, template },
-    status: "skipped",
-    durationMs: 0,
-    steps: [],
-    failure: {
-      code: "PACKAGE_MANAGER_UNAVAILABLE",
-      message: "This package manager or template is not implemented in this PR.",
-      suggestion: "Use npm with node-esm, node-cjs, or cli-basic for now."
-    }
-  };
-}
-
 function failedResult(
-  packageManager: "npm",
-  template: "node-esm" | "node-cjs" | "cli-basic",
+  packageManager: PackageManagerName,
+  template: TemplateName,
   startedAt: number,
   steps: MatrixResult["steps"],
   failure: MatrixResult["failure"]
@@ -132,3 +105,30 @@ function failedResult(
   };
 }
 
+async function installPackage(
+  packageManager: PackageManagerName,
+  cwd: string,
+  tarballPath: string,
+  config: PackTrialConfig
+) {
+  const options = {
+    cwd,
+    tarballPath,
+    commandTimeoutMs: config.limits.commandTimeoutMs,
+    maxOutputBytes: config.limits.maxOutputBytes
+  };
+  return packageManager === "npm" ? await npmInstall(options) : await pnpmInstall(options);
+}
+
+async function runConsumerCommand(
+  packageManager: PackageManagerName,
+  cwd: string,
+  command: string[],
+  stepName: "build" | "run",
+  commandTimeoutMs: number,
+  maxOutputBytes: number
+) {
+  return packageManager === "npm"
+    ? await npmRunConsumerCommand(cwd, command, stepName, commandTimeoutMs, maxOutputBytes)
+    : await pnpmRunConsumerCommand(cwd, command, stepName, commandTimeoutMs, maxOutputBytes);
+}
