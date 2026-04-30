@@ -4,7 +4,7 @@ Test your package the way your users install it.
 
 PackTrial is an early-stage ShipProve project for validating npm package artifacts before release. It is intended to create temporary synthetic consumer projects, install the package artifact, and verify that common consumer environments can install, import, build, and run it.
 
-This repository is currently in the initial planning and documentation stage. The CLI and GitHub Action are not ready for production use yet.
+This repository is currently in MVP development. The CLI can already validate packed npm package artifacts in generated consumer projects, and this repository can dogfood PackTrial against its own packed artifact.
 
 ## What PackTrial Checks
 
@@ -19,9 +19,17 @@ The MVP is focused on Node.js and TypeScript packages. Planned checks include:
 
 PackTrial is not a SemVer decision tool and does not test real downstream repositories. In the ShipProve portfolio, SemVerdict handles public surface and SemVer risk, while EcoTrial is intended for real downstream project validation.
 
-## Planned Usage
+## Installation
 
-The exact interface may change before the first MVP release. The intended shape is:
+PackTrial is not published to npm yet. From a checkout, use:
+
+```sh
+pnpm install
+pnpm build
+node dist/cli/index.js --help
+```
+
+## Usage
 
 ```sh
 packtrial run
@@ -30,8 +38,16 @@ packtrial run
 With explicit options:
 
 ```sh
-packtrial run --pm npm,pnpm --templates node-esm,node-cjs,ts-node16,cli-basic
+packtrial run --pm npm,pnpm --template node-esm,node-cjs,ts-node16,cli-basic
 ```
+
+From this repository, you can run the current dogfood check:
+
+```sh
+pnpm packtrial:dogfood
+```
+
+The self dogfood matrix uses `node-esm`, `ts-bundler`, and `cli-basic` with npm and pnpm. The `node-cjs` template is covered by fixture tests because PackTrial itself is ESM-first.
 
 As a GitHub Action, PackTrial is expected to run after checkout, dependency installation, and build:
 
@@ -46,7 +62,7 @@ steps:
       node-version: 20
   - run: npm ci
   - run: npm run build
-  - uses: shipprove/packtrial@v1
+  - uses: shipprove/packtrial@v0
     with:
       package-managers: npm,pnpm
 ```
