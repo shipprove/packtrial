@@ -58,7 +58,7 @@ export async function materializeTemplate(
   if (template === "ts-node16" || template === "ts-bundler") {
     await writeFile(
       join(dir, "index.ts"),
-      `import { ok } from ${JSON.stringify(artifact.packageJson.name)};\nconst value: boolean = ok;\nconsole.log(value);\n`
+      `import * as pkg from ${JSON.stringify(artifact.packageJson.name)};\nconsole.log(Boolean(pkg));\n`
     );
     await writeFile(
       join(dir, "tsconfig.json"),

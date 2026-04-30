@@ -15,7 +15,7 @@ function inferDiagnosticCode(template: TemplateName, output: string): Diagnostic
   if (template === "cli-basic" && /not found|could not determine executable|No such file/i.test(output)) {
     return "CLI_BIN_MISSING";
   }
-  if (/Cannot find module|ERR_MODULE_NOT_FOUND/i.test(output)) {
+  if (/Cannot find module|ERR_MODULE_NOT_FOUND|has no exported member/i.test(output)) {
     return "MISSING_EXPORT";
   }
   if (/Could not find a declaration file|implicitly has an 'any' type|Cannot find type definition/i.test(output)) {
